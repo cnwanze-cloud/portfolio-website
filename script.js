@@ -1,20 +1,18 @@
-// GitHub Auto Project Loader
 const username = "cnwanze-cloud";
+const imgName = "Architecture.png"; 
 
 async function fetchProjects() {
     const container = document.getElementById("project-grid");
     
     try {
         const response = await fetch(`https://api.github.com/users/${username}/repos?sort=updated`);
-        if (!response.ok) throw new Error("Failed to fetch");
+        if (!response.ok) throw new Error("API Fetch Failed");
         
         const data = await response.json();
         container.innerHTML = "";
 
-        // Filter: Only show non-forks that have a description
-        const repos = data
-            .filter(repo => !repo.fork && repo.description)
-            .slice(0, 6);
+        // Show all original work with descriptions
+        const repos = data.filter(repo => !repo.fork && repo.description);
 
         repos.forEach(repo => {
             const card = document.createElement("a");
@@ -22,60 +20,63 @@ async function fetchProjects() {
             card.href = repo.html_url;
             card.target = "_blank";
 
+            const imageUrl = `https://raw.githubusercontent.com/${username}/${repo.name}/main/${imgName}`;
+            const fallbackUrl = `https://raw.githubusercontent.com/${username}/${repo.name}/master/${imgName}`;
+
+            // Create badges for GitHub topics/skills
+            const tags = repo.topics.map(topic => `<span class="tag">${topic}</span>`).join("");
+
             card.innerHTML = `
+                <div class="repo-image-container">
+                    <img src="${imageUrl}" 
+                         alt="${repo.name} Architecture" 
+                         onerror="handleImageError(this, '${fallbackUrl}')">
+                </div>
                 <h3>${formatName(repo.name)}</h3>
                 <p>${repo.description}</p>
-                <span style="margin-top: 15px; color: #00d4ff; font-size: 0.85rem; font-weight: bold;">
-                    View Repository →
-                </span>
+                <div class="card-tags">
+                    ${repo.language ? `<span class="tag lang">${repo.language}</span>` : ""}
+                    ${tags}
+                </div>
+                <span class="view-link">View Repo →</span>
             `;
 
             container.appendChild(card);
         });
     } catch (error) {
-        container.innerHTML = "<p>Unable to load projects at this time.</p>";
-        console.error("GitHub Fetch Error:", error);
+        container.innerHTML = "<p>Network error: Unable to load projects. View them on GitHub.</p>";
+        console.error(error);
     }
 }
 
-// Format repo name: my-repo-name -> My Repo Name
-function formatName(name) {
-    return name
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, c => c.toUpperCase());
+function handleImageError(img, fallback) {
+    if (img.src.includes('/main/')) {
+        img.src = fallback;
+    } else {
+        img.src = 'https://img.icons8.com/ios-filled/100/1f2937/cloud-lighting.png';
+        img.style.width = '50px';
+        img.style.opacity = '0.5';
+    }
 }
 
-// Smooth scroll for nav links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener("click", function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute("href"));
-        if (target) {
-            target.scrollIntoView({ behavior: "smooth" });
-        }
-    });
-});
+function formatName(name) {
+    return name.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
 
-// Active nav highlight on scroll
-const sections = document.querySelectorAll("section");
+// Nav Highlight logic
 const navLinks = document.querySelectorAll("nav ul li a");
+const sections = document.querySelectorAll("section");
 
-window.addEventListener("scroll", () => {
-    let current = "";
-    sections.forEach(section => {
-        const sectionTop = section.offsetTop;
-        if (scrollY >= sectionTop - 150) {
-            current = section.getAttribute("id");
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            navLinks.forEach(link => {
+                link.classList.toggle("active", link.getAttribute("href") === `#${entry.target.id}`);
+            });
         }
     });
+}, { threshold: 0.5 });
 
-    navLinks.forEach(link => {
-        link.classList.remove("active");
-        if (link.getAttribute("href") === `#${current}`) {
-            link.classList.add("active");
-        }
-    });
-});
+sections.forEach(section => observer.observe(section));
 
-// Initialize Fetch
 fetchProjects();
